@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Color Extraction and Donut Design</title>
+    <style>
+        /* Styles for layout */
+        .controls {
+            margin-bottom: 20px;
+        }
+        .controls label {
+            display: inline-block;
+            margin-right: 10px;
+        }
+        #design-canvas {
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <h1>Upload Images to Generate a Donut-Shaped Design</h1>
+
+    <!-- Image Upload Control -->
+    <div class="controls">
+        <input type="file" id="image-upload" accept="image/*" multiple>
+    </div>
+
+    <!-- Time Input Controls -->
+    <div class="controls">
+        <label>PM Time 1:
+            <input type="number" id="pmTime1" value="2" min="1" max="12">
+        </label>
+        <label>PM Time 2:
+            <input type="number" id="pmTime2" value="4" min="1" max="12">
+        </label>
+        <label>AM Time 1:
+            <input type="number" id="amTime1" value="2" min="1" max="12">
+        </label>
+        <label>AM Time 2:
+            <input type="number" id="amTime2" value="4" min="1" max="12">
+        </label>
+        <button id="redraw-button">Redraw</button>
+    </div>
+
+    <!-- Canvas for Drawing -->
+    <canvas id="design-canvas"></canvas>
+
+    <!-- Include Color Thief Library -->
+    <script src="https://unpkg.com/colorthief/dist/color-thief.umd.js"></script>
+
+    <script>
+        // Global variable to store colors
+        let allColors = [];
+
+        // Event listeners
+        document.getElementById('image-upload').addEventListener('change', handleImageUpload);
+        document.getElementById('redraw-button').addEventListener('click', function() {
+            drawDesign(allColors);
+        });
+
+        // Function to handle image upload
+        function handleImageUpload(event) {
+            const files = event.target.files;
+            allColors = [];
+            let processedImages = 0;
+
+            for (let file of files) {
+                processImage(file, function(palette) {
+                    allColors.push(...palette);
+                    processedImages++;
+
+                    // After processing all images, draw the design
+                    if (processedImages === files.length) {
+                        drawDesign(allColors);
+                    }
+                });
+            }
+        }
+
+        // Function to process each image and extract colors
+        function processImage(file, callback) {
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const img = new Image();
+                img.crossOrigin = 'Anonymous';
+                img.src = e.target.result;
+
+                img.onload = function() {
+                    const colorThief = new ColorThief();
+                    // Extract 4 colors
+                    const palette = colorThief.getPalette(img, 4);
+                    callback(palette);
+                };
+            };
+
+            reader.readAsDataURL(file);
+        }
+
+        // Function to draw the design
+        function drawDesign(colors) {
+            // Use only the first four colors
+            const selectedColors = colors.slice(0, 4);
+
+            const canvas = document.getElementById('design-canvas');
+            const ctx = canvas.getContext('2d');
+
+            const innerRadius = 200;
+            const outerRadius = 240; // Changed outer radius to 240 pixels
+
+            // Set canvas dimensions
+            const canvasSize = outerRadius * 2;
+            canvas.width = canvasSize;
+            canvas.height = canvasSize;
+
+            // Center point
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            // Clear the canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Get times from input boxes
+            const pmTime1 = parseInt(document.getElementById('pmTime1').value) || 12;
+            const pmTime2 = parseInt(document.getElementById('pmTime2').value) || 12;
+            const amTime1 = parseInt(document.getElementById('amTime1').value) || 12;
+            const amTime2 = parseInt(document.getElementById('amTime2').value) || 12;
+
+            // Convert times to angles
+            const angles = [];
+
+            // Convert PM times to angles
+            angles.push(timeToAngle(pmTime1, 'PM'));
+            angles.push(timeToAngle(pmTime2, 'PM'));
+
+            // Convert AM times to angles
+            angles.push(timeToAngle(amTime1, 'AM'));
+            angles.push(timeToAngle(amTime2, 'AM'));
+
+            // Sort angles in increasing order
+            angles.sort((a, b) => a - b);
+
+            // Ensure the angles cover from 0 to 360 degrees
+            if (angles[0] !== 0) {
+                angles.unshift(0);
+            }
+            if (angles[angles.length - 1] !== 360) {
+                angles.push(360);
+            }
+
+            // Pair up angles for segments
+            const segments = [];
+            for (let i = 0; i < angles.length - 1; i++) {
+                segments.push({ start: angles[i], end: angles[i + 1] });
+            }
+
+            // Draw each donut segment
+            for (let i = 0; i < segments.length; i++) {
+                const color = selectedColors[i % selectedColors.length];
+
+                // Convert degrees to radians
+                const startAngle = (segments[i].start * Math.PI) / 180;
+                const endAngle = (segments[i].end * Math.PI) / 180;
+
+                ctx.beginPath();
+
+                // Outer arc (clockwise)
+                ctx.arc(centerX, centerY, outerRadius, startAngle, endAngle, false);
+
+                // Inner arc (counter-clockwise)
+                ctx.arc(centerX, centerY, innerRadius, endAngle, startAngle, true);
+
+                ctx.closePath();
+
+                ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+                ctx.fill('evenodd');
+            }
+
+            // Draw white lines at intervals of 15 degrees
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'white';
+
+            for (let angle = 0; angle < 360; angle += 15) {
+                const radians = (angle * Math.PI) / 180;
+                const xEnd = centerX + outerRadius * Math.cos(radians);
+                const yEnd = centerY + outerRadius * Math.sin(radians);
+
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(xEnd, yEnd);
+                ctx.stroke();
+            }
+        }
+
+        // Function to convert time to angle
+        function timeToAngle(time, period) {
+            let hour = time;
+
+            // Validate time input
+            if (isNaN(hour) || hour < 1 || hour > 12) {
+                hour = 12; // Default to 12 if invalid
+            }
+
+            if (period === 'PM') {
+                if (hour === 12) {
+                    hour = 12; // 12 PM is 12
+                } else {
+                    hour += 12; // Convert to 24-hour format
+                }
+            } else if (period === 'AM') {
+                if (hour === 12) {
+                    hour = 0; // 12 AM is 0
+                }
+                // else hour remains the same (1-11 AM)
+            }
+
+            // Calculate angle
+            let angle = (hour * 15 + 90) % 360;
+            return angle;
+        }
+    </script>
+</body>
+</html>
