@@ -1,48 +1,141 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Color Extraction and Donut Design</title>
+    <title>SOLSTICIAN</title>
+    <!-- Include Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet">
+
     <style>
         /* Styles for layout */
+        body {
+        font-family: "Figtree", sans-serif;
+        font-weight: 300;
+        font-style: normal;
+        font-feature-settings: 'ss01' 1;
+        text-align: center;
+        }
+
+        h1 {
+            text-align: center;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-weight: 900;
+            font-size: 80px;
+        }
+
         .controls {
-            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 20px;
         }
-        .controls label {
-            display: inline-block;
-            margin-right: 10px;
+
+        .input-column {
+            display: flex;
+            flex-direction: column;
+            margin: 10px;
+            min-width: 100px;
         }
-        #design-canvas {
-            border: 1px solid #ccc;
+
+        .input-group label {
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 5px;
+            font-size: 16px;
+        }
+
+        .text-input {
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .text-input label {
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .text-input input {
+            width: 100%;
+            padding: 5px;
+            font-size: 16px;
+            font-family: Figtree;
+        }
+
+        #design-svg {
+            display: block;
+            margin: 20px auto;
+            border: 0px solid #ccc;
+            width: 600px;
+            height: 400px;
+        }
+
+        /* Media Queries for Mobile */
+        @media (max-width: 500px) {
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            .input-column {
+                width: 80%;
+                align-items: center;
+            }
+            .text-input input {
+                width: 80%;
+            }
         }
     </style>
 </head>
 <body>
-    <h1>Upload Images to Generate a Donut-Shaped Design</h1>
+    <h1>SOLSTICIAN</h1>
 
+    <p>please choose an image file to generate a colour palette</p>
     <!-- Image Upload Control -->
     <div class="controls">
         <input type="file" id="image-upload" accept="image/*" multiple>
     </div>
 
-    <!-- Time Input Controls -->
+    <!-- Time and Text Input Controls -->
     <div class="controls">
-        <label>PM Time 1:
-            <input type="number" id="pmTime1" value="2" min="1" max="12">
+        <!-- Sunrise Inputs (Left Column) -->
+        <div class="input-column">
+            <div class="input-group">
+                <label>SUNRISE
+                    <input type="number" id="sunriseEarliest" value="6" min="1" max="12">
+                </label>
+                <label>
+                    <input type="number" id="sunriseLatest" value="8" min="1" max="12">
+                </label>
+            </div>
+        </div>
+        <!-- Sunset Inputs (Right Column) -->
+        <div class="input-column">
+            <div class="input-group">
+                <label>SUNSET
+                    <input type="number" id="sunsetEarliest" value="5" min="1" max="12">
+                </label>
+                <label>
+                    <input type="number" id="sunsetLatest" value="9" min="1" max="12">
+                </label>
+            </div>
+        </div>
+        <!-- Text Input Centered Below -->
+        <div class="text-input">
+        <label>CITY
+            <input type="text" id="displayText" value="melbourne">
         </label>
-        <label>PM Time 2:
-            <input type="number" id="pmTime2" value="4" min="1" max="12">
-        </label>
-        <label>AM Time 1:
-            <input type="number" id="amTime1" value="2" min="1" max="12">
-        </label>
-        <label>AM Time 2:
-            <input type="number" id="amTime2" value="4" min="1" max="12">
-        </label>
-        <button id="redraw-button">Redraw</button>
     </div>
 
-    <!-- Canvas for Drawing -->
-    <canvas id="design-canvas"></canvas>
+    </div>
+
+
+    <!-- SVG for Drawing -->
+    <svg id="design-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300"></svg>
 
     <!-- Include Color Thief Library -->
     <script src="https://unpkg.com/colorthief/dist/color-thief.umd.js"></script>
@@ -53,8 +146,13 @@
 
         // Event listeners
         document.getElementById('image-upload').addEventListener('change', handleImageUpload);
-        document.getElementById('redraw-button').addEventListener('click', function() {
-            drawDesign(allColors);
+
+        // Add event listeners to inputs to redraw when they change
+        const inputs = document.querySelectorAll('#sunriseEarliest, #sunriseLatest, #sunsetEarliest, #sunsetLatest, #displayText');
+        inputs.forEach(input => {
+            input.addEventListener('input', function() {
+                drawDesign(allColors);
+            });
         });
 
         // Function to handle image upload
@@ -87,8 +185,8 @@
 
                 img.onload = function() {
                     const colorThief = new ColorThief();
-                    // Extract 4 colors
-                    const palette = colorThief.getPalette(img, 4);
+                    // Extract 3 colors
+                    const palette = colorThief.getPalette(img, 3);
                     callback(palette);
                 };
             };
@@ -96,45 +194,66 @@
             reader.readAsDataURL(file);
         }
 
+        // Function to calculate luminance of a color
+        function calculateLuminance(color) {
+            let [r, g, b] = color.map(v => v / 255);
+
+            // Apply gamma correction
+            r = r <= 0.03928 ? r / 12.92 : ((r + 0.055) / 1.055) ** 2.4;
+            g = g <= 0.03928 ? g / 12.92 : ((g + 0.055) / 1.055) ** 2.4;
+            b = b <= 0.03928 ? b / 12.92 : ((b + 0.055) / 1.055) ** 2.4;
+
+            return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        }
+
         // Function to draw the design
         function drawDesign(colors) {
-            // Use only the first four colors
-            const selectedColors = colors.slice(0, 4);
+            if (colors.length < 3) {
+                alert('Not enough colors extracted. Please upload more images.');
+                return;
+            }
 
-            const canvas = document.getElementById('design-canvas');
-            const ctx = canvas.getContext('2d');
+            // Use only the first three colors
+            const selectedColors = colors.slice(0, 3);
 
-            const innerRadius = 200;
-            const outerRadius = 240; // Changed outer radius to 240 pixels
+            // Calculate luminance and sort colors
+            const colorsWithLuminance = selectedColors.map(color => ({
+                color,
+                luminance: calculateLuminance(color)
+            }));
 
-            // Set canvas dimensions
-            const canvasSize = outerRadius * 2;
-            canvas.width = canvasSize;
-            canvas.height = canvasSize;
+            // Sort colors by luminance
+            colorsWithLuminance.sort((a, b) => a.luminance - b.luminance);
 
-            // Center point
-            const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
+            // Extract colors
+            const darkestColor = colorsWithLuminance[0].color;
+            const middleColor = colorsWithLuminance[1].color;
+            const lightestColor = colorsWithLuminance[2].color;
 
-            // Clear the canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const svg = document.getElementById('design-svg');
+            svg.innerHTML = ''; // Clear previous SVG content
+
+            const innerRadius = 100;
+            const outerRadius = 125;
+            const centerX = 150;
+            const centerY = 150;
 
             // Get times from input boxes
-            const pmTime1 = parseInt(document.getElementById('pmTime1').value) || 12;
-            const pmTime2 = parseInt(document.getElementById('pmTime2').value) || 12;
-            const amTime1 = parseInt(document.getElementById('amTime1').value) || 12;
-            const amTime2 = parseInt(document.getElementById('amTime2').value) || 12;
+            const sunriseEarliest = parseInt(document.getElementById('sunriseEarliest').value) || 6;
+            const sunriseLatest = parseInt(document.getElementById('sunriseLatest').value) || 8;
+            const sunsetEarliest = parseInt(document.getElementById('sunsetEarliest').value) || 5;
+            const sunsetLatest = parseInt(document.getElementById('sunsetLatest').value) || 9;
 
             // Convert times to angles
             const angles = [];
 
-            // Convert PM times to angles
-            angles.push(timeToAngle(pmTime1, 'PM'));
-            angles.push(timeToAngle(pmTime2, 'PM'));
+            // Sunrise times (AM)
+            angles.push(timeToAngle(sunriseEarliest, 'AM'));
+            angles.push(timeToAngle(sunriseLatest, 'AM'));
 
-            // Convert AM times to angles
-            angles.push(timeToAngle(amTime1, 'AM'));
-            angles.push(timeToAngle(amTime2, 'AM'));
+            // Sunset times (PM)
+            angles.push(timeToAngle(sunsetEarliest, 'PM'));
+            angles.push(timeToAngle(sunsetLatest, 'PM'));
 
             // Sort angles in increasing order
             angles.sort((a, b) => a - b);
@@ -153,42 +272,81 @@
                 segments.push({ start: angles[i], end: angles[i + 1] });
             }
 
+            // Build the drawingColors array based on the number of segments
+            let drawingColors = [];
+            const baseColorSequence = [middleColor, darkestColor, middleColor, lightestColor, middleColor];
+            for (let i = 0; i < segments.length; i++) {
+                drawingColors.push(baseColorSequence[i % baseColorSequence.length]);
+            }
+
             // Draw each donut segment
             for (let i = 0; i < segments.length; i++) {
-                const color = selectedColors[i % selectedColors.length];
+                const color = drawingColors[i];
 
                 // Convert degrees to radians
                 const startAngle = (segments[i].start * Math.PI) / 180;
                 const endAngle = (segments[i].end * Math.PI) / 180;
 
-                ctx.beginPath();
+                // Create path for each donut segment
+                const largeArcFlag = endAngle - startAngle > Math.PI ? 1 : 0;
 
-                // Outer arc (clockwise)
-                ctx.arc(centerX, centerY, outerRadius, startAngle, endAngle, false);
+                const x1Outer = centerX + outerRadius * Math.cos(startAngle);
+                const y1Outer = centerY + outerRadius * Math.sin(startAngle);
+                const x2Outer = centerX + outerRadius * Math.cos(endAngle);
+                const y2Outer = centerY + outerRadius * Math.sin(endAngle);
 
-                // Inner arc (counter-clockwise)
-                ctx.arc(centerX, centerY, innerRadius, endAngle, startAngle, true);
+                const x1Inner = centerX + innerRadius * Math.cos(startAngle);
+                const y1Inner = centerY + innerRadius * Math.sin(startAngle);
+                const x2Inner = centerX + innerRadius * Math.cos(endAngle);
+                const y2Inner = centerY + innerRadius * Math.sin(endAngle);
 
-                ctx.closePath();
+                const pathData = [
+                    `M ${x1Outer} ${y1Outer}`, // Move to starting point of outer arc
+                    `A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 1 ${x2Outer} ${y2Outer}`, // Outer arc
+                    `L ${x2Inner} ${y2Inner}`, // Line to inner arc
+                    `A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${x1Inner} ${y1Inner}`, // Inner arc
+                    `Z` // Close path
+                ].join(' ');
 
-                ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
-                ctx.fill('evenodd');
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', pathData);
+                path.setAttribute('fill', `rgb(${color[0]}, ${color[1]}, ${color[2]})`);
+
+                svg.appendChild(path);
             }
 
-            // Draw white lines at intervals of 15 degrees
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = 'white';
-
+            // Add radial lines every 15 degrees
             for (let angle = 0; angle < 360; angle += 15) {
                 const radians = (angle * Math.PI) / 180;
-                const xEnd = centerX + outerRadius * Math.cos(radians);
-                const yEnd = centerY + outerRadius * Math.sin(radians);
+                const xOuter = centerX + outerRadius * Math.cos(radians);
+                const yOuter = centerY + outerRadius * Math.sin(radians);
 
-                ctx.beginPath();
-                ctx.moveTo(centerX, centerY);
-                ctx.lineTo(xEnd, yEnd);
-                ctx.stroke();
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', centerX);
+                line.setAttribute('y1', centerY);
+                line.setAttribute('x2', xOuter);
+                line.setAttribute('y2', yOuter);
+                line.setAttribute('stroke', 'white');
+                line.setAttribute('stroke-width', '2');
+                svg.appendChild(line);
             }
+
+            // Get the text from the input and convert to uppercase
+            const displayText = document.getElementById('displayText').value.toUpperCase();
+
+            // Add text element
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', centerX);
+            text.setAttribute('y', centerY - 40);
+            text.setAttribute('font-size', '12px');
+            text.setAttribute('font-family', '"Figtree", serif');
+            text.setAttribute('font-weight', '300');
+            text.setAttribute('fill', `rgb(${middleColor[0]}, ${middleColor[1]}, ${middleColor[2]})`);
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('dominant-baseline', 'middle');
+            text.textContent = displayText;
+
+            svg.appendChild(text);
         }
 
         // Function to convert time to angle
@@ -201,21 +359,17 @@
             }
 
             if (period === 'PM') {
-                if (hour === 12) {
-                    hour = 12; // 12 PM is 12
-                } else {
+                if (hour !== 12) {
                     hour += 12; // Convert to 24-hour format
                 }
             } else if (period === 'AM') {
                 if (hour === 12) {
                     hour = 0; // 12 AM is 0
                 }
-                // else hour remains the same (1-11 AM)
             }
 
             // Calculate angle
-            let angle = (hour * 15 + 90) % 360;
-            return angle;
+            return (hour * 15 + 90) % 360;
         }
     </script>
 </body>
