@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SOLSTICIAN</title>
+    <!-- Include Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet">
+
+    <style>
+        /* Styles for layout */
+        body {
+        font-family: "Figtree", sans-serif;
+        font-weight: 300;
+        font-style: normal;
+        font-feature-settings: 'ss01' 1;
+        text-align: center;
+        }
+
+        h1 {
+            text-align: center;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-weight: 900;
+            font-size: 80px;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 20px;
+        }
+
+        .input-column {
+            display: flex;
+            flex-direction: column;
+            margin: 10px;
+            min-width: 100px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 5px;
+            font-size: 16px;
+        }
+
+        .text-input {
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .text-input label {
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .text-input input {
+            width: 100%;
+            padding: 5px;
+            font-size: 16px;
+            font-family: Figtree;
+        }
+
+        #design-svg {
+            display: block;
+            margin: 20px auto;
+            border: 0px solid #ccc;
+            width: 600px;
+            height: 400px;
+        }
+
+        /* Media Queries for Mobile */
+        @media (max-width: 500px) {
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            .input-column {
+                width: 80%;
+                align-items: center;
+            }
+            .text-input input {
+                width: 80%;
+            }
+        }
+
+        /* Define the animation for the rotation */
+        @keyframes rotate {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Apply the animation to the image */
+        #hour {
+            transform-origin: center; /* Ensure rotation happens around the center */
+            animation: rotate 14400s linear infinite; /* 60 seconds for 1 revolution */
+        }
+
+        #minutes {
+            transform-origin: center; /* Ensure rotation happens around the center */
+            animation: rotate 600s linear infinite; /* 600 seconds for 1 revolution */
+        }
+
+        #seconds {
+            transform-origin: center; /* Ensure rotation happens around the center */
+            animation: rotate 10s linear infinite; /* 10 seconds for 1 revolution */
+        }
+    </style>
+</head>
+<body>
+    <h1>SOLSTICIAN</h1>
+
+    <p>please choose an image file to generate a colour palette</p>
+    <!-- Image Upload Control -->
+    <div class="controls">
+        <input type="file" id="image-upload" accept="image/*" multiple>
+    </div>
+
+    <!-- Time and Text Input Controls -->
+    <div class="controls">
+        <!-- Sunrise Inputs (Left Column) -->
+        <div class="input-column">
+            <div class="input-group">
+                <label>SUNRISE
+                    <input type="number" id="sunriseEarliest" value="6" min="1" max="12">
+                </label>
+                <label>
+                    <input type="number" id="sunriseLatest" value="8" min="1" max="12">
+                </label>
+            </div>
+        </div>
+        <!-- Sunset Inputs (Right Column) -->
+        <div class="input-column">
+            <div class="input-group">
+                <label>SUNSET
+                    <input type="number" id="sunsetEarliest" value="5" min="1" max="12">
+                </label>
+                <label>
+                    <input type="number" id="sunsetLatest" value="9" min="1" max="12">
+                </label>
+            </div>
+        </div>
+        <!-- Text Input Centered Below -->
+        <div class="text-input">
+        <label>CITY
+            <input type="text" id="displayText" value="melbourne">
+        </label>
+    </div>
+
+    </div>
+
+
+    <!-- SVG for Drawing -->
+    <svg id="design-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300">
+        
+
+    </svg>
+
+    <!-- Include Color Thief Library -->
+    <script src="https://unpkg.com/colorthief/dist/color-thief.umd.js"></script>
+
+    <script>
+        // Global variable to store colors
+        let allColors = [];
+
+        // Event listeners
+        document.getElementById('image-upload').addEventListener('change', handleImageUpload);
+
+        // Add event listeners to inputs to redraw when they change
+        const inputs = document.querySelectorAll('#sunriseEarliest, #sunriseLatest, #sunsetEarliest, #sunsetLatest, #displayText');
+        inputs.forEach(input => {
+            input.addEventListener('input', function() {
+                drawDesign(allColors);
+            });
+        });
+
+        // Function to handle image upload
+        function handleImageUpload(event) {
+            const files = event.target.files;
+            allColors = [];
+            let processedImages = 0;
+
+            for (let file of files) {
+                processImage(file, function(palette) {
+                    allColors.push(...palette);
+                    processedImages++;
+
+                    // After processing all images, draw the design
+                    if (processedImages === files.length) {
+                        drawDesign(allColors);
+                    }
+                });
+            }
+        }
+
+        // Function to process each image and extract colors
+        function processImage(file, callback) {
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const img = new Image();
+                img.crossOrigin = 'Anonymous';
+                img.src = e.target.result;
+
+                img.onload = function() {
+                    const colorThief = new ColorThief();
+                    // Extract 3 colors
+                    const palette = colorThief.getPalette(img, 3);
+                    callback(palette);
+                };
+            };
+
+            reader.readAsDataURL(file);
+        }
+
+        // Function to calculate luminance of a color
+        function calculateLuminance(color) {
+            let [r, g, b] = color.map(v => v / 255);
+
+            // Apply gamma correction
+            r = r <= 0.03928 ? r / 12.92 : ((r + 0.055) / 1.055) ** 2.4;
+            g = g <= 0.03928 ? g / 12.92 : ((g + 0.055) / 1.055) ** 2.4;
+            b = b <= 0.03928 ? b / 12.92 : ((b + 0.055) / 1.055) ** 2.4;
+
+            return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        }
+
+        // Function to draw the design
+        function drawDesign(colors) {
+            if (colors.length < 3) {
+                alert('Not enough colors extracted. Please upload more images.');
+                return;
+            }
+
+            // Use only the first three colors
+            const selectedColors = colors.slice(0, 3);
+
+            // Calculate luminance and sort colors
+            const colorsWithLuminance = selectedColors.map(color => ({
+                color,
+                luminance: calculateLuminance(color)
+            }));
+
+            // Sort colors by luminance
+            colorsWithLuminance.sort((a, b) => a.luminance - b.luminance);
+
+            // Extract colors
+            const darkestColor = colorsWithLuminance[0].color;
+            const middleColor = colorsWithLuminance[1].color;
+            const lightestColor = colorsWithLuminance[2].color;
+
+            const svg = document.getElementById('design-svg');
+            svg.innerHTML = ''; // Clear previous SVG content
+
+            const innerRadius = 100;
+            const outerRadius = 125;
+            const centerX = 150;
+            const centerY = 150;
+
+            // Get times from input boxes
+            const sunriseEarliest = parseInt(document.getElementById('sunriseEarliest').value) || 6;
+            const sunriseLatest = parseInt(document.getElementById('sunriseLatest').value) || 8;
+            const sunsetEarliest = parseInt(document.getElementById('sunsetEarliest').value) || 5;
+            const sunsetLatest = parseInt(document.getElementById('sunsetLatest').value) || 9;
+
+            // Convert times to angles
+            const angles = [];
+
+            // Sunrise times (AM)
+            angles.push(timeToAngle(sunriseEarliest, 'AM'));
+            angles.push(timeToAngle(sunriseLatest, 'AM'));
+
+            // Sunset times (PM)
+            angles.push(timeToAngle(sunsetEarliest, 'PM'));
+            angles.push(timeToAngle(sunsetLatest, 'PM'));
+
+            // Sort angles in increasing order
+            angles.sort((a, b) => a - b);
+
+            // Ensure the angles cover from 0 to 360 degrees
+            if (angles[0] !== 0) {
+                angles.unshift(0);
+            }
+            if (angles[angles.length - 1] !== 360) {
+                angles.push(360);
+            }
+
+            // Pair up angles for segments
+            const segments = [];
+            for (let i = 0; i < angles.length - 1; i++) {
+                segments.push({ start: angles[i], end: angles[i + 1] });
+            }
+
+            // Build the drawingColors array based on the number of segments
+            let drawingColors = [];
+            const baseColorSequence = [middleColor, darkestColor, middleColor, lightestColor, middleColor];
+            for (let i = 0; i < segments.length; i++) {
+                drawingColors.push(baseColorSequence[i % baseColorSequence.length]);
+            }
+
+            // Draw each donut segment
+            for (let i = 0; i < segments.length; i++) {
+                const color = drawingColors[i];
+
+                // Convert degrees to radians
+                const startAngle = (segments[i].start * Math.PI) / 180;
+                const endAngle = (segments[i].end * Math.PI) / 180;
+
+                // Create path for each donut segment
+                const largeArcFlag = endAngle - startAngle > Math.PI ? 1 : 0;
+
+                const x1Outer = centerX + outerRadius * Math.cos(startAngle);
+                const y1Outer = centerY + outerRadius * Math.sin(startAngle);
+                const x2Outer = centerX + outerRadius * Math.cos(endAngle);
+                const y2Outer = centerY + outerRadius * Math.sin(endAngle);
+
+                const x1Inner = centerX + innerRadius * Math.cos(startAngle);
+                const y1Inner = centerY + innerRadius * Math.sin(startAngle);
+                const x2Inner = centerX + innerRadius * Math.cos(endAngle);
+                const y2Inner = centerY + innerRadius * Math.sin(endAngle);
+
+                const pathData = [
+                    `M ${x1Outer} ${y1Outer}`, // Move to starting point of outer arc
+                    `A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 1 ${x2Outer} ${y2Outer}`, // Outer arc
+                    `L ${x2Inner} ${y2Inner}`, // Line to inner arc
+                    `A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${x1Inner} ${y1Inner}`, // Inner arc
+                    `Z` // Close path
+                ].join(' ');
+
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', pathData);
+                path.setAttribute('fill', `rgb(${color[0]}, ${color[1]}, ${color[2]})`);
+
+                svg.appendChild(path);
+            }
+
+            // Add radial lines every 15 degrees
+            for (let angle = 0; angle < 360; angle += 15) {
+                const radians = (angle * Math.PI) / 180;
+                const xOuter = centerX + outerRadius * Math.cos(radians);
+                const yOuter = centerY + outerRadius * Math.sin(radians);
+
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', centerX);
+                line.setAttribute('y1', centerY);
+                line.setAttribute('x2', xOuter);
+                line.setAttribute('y2', yOuter);
+                line.setAttribute('stroke', 'white');
+                line.setAttribute('stroke-width', '2');
+                svg.appendChild(line);
+            }
+
+            // Get the text from the input and convert to uppercase
+            const displayText = document.getElementById('displayText').value.toUpperCase();
+
+            // Add text element
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', centerX);
+            text.setAttribute('y', centerY - 40);
+            text.setAttribute('font-size', '12px');
+            text.setAttribute('font-family', '"Figtree", serif');
+            text.setAttribute('font-weight', '300');
+            text.setAttribute('fill', `rgb(${middleColor[0]}, ${middleColor[1]}, ${middleColor[2]})`);
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('dominant-baseline', 'middle');
+            text.textContent = displayText;
+
+            svg.appendChild(text);
+
+            // Add in hour hand    
+            const hourImage = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+            hourImage.setAttribute('href', 'images/gmt.svg'); // Replace with your image path
+            hourImage.setAttribute('x', '0');     // X position (top-left corner)
+            hourImage.setAttribute('y', '0');     // Y position (top-left corner)
+            hourImage.setAttribute('width', '300'); // Image width
+            hourImage.setAttribute('height', '300'); // Image height
+            hourImage.setAttribute('id', 'hour'); // Set ID for animation
+
+            svg.appendChild(hourImage);
+
+            // Add in minute hand    
+            const minuteImage = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+            minuteImage.setAttribute('href', 'images/minute.svg'); // Replace with your image path
+            minuteImage.setAttribute('x', '0');     // X position (top-left corner)
+            minuteImage.setAttribute('y', '0');     // Y position (top-left corner)
+            minuteImage.setAttribute('width', '300'); // Image width
+            minuteImage.setAttribute('height', '300'); // Image height
+            minuteImage.setAttribute('id', 'minutes'); // Set ID for animation
+
+            svg.appendChild(minuteImage);
+
+            // Add in second hand    
+            const secondImage = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+            secondImage.setAttribute('href', 'images/second.svg'); // Replace with your image path
+            secondImage.setAttribute('x', '0');     // X position (top-left corner)
+            secondImage.setAttribute('y', '0');     // Y position (top-left corner)
+            secondImage.setAttribute('width', '300'); // Image width
+            secondImage.setAttribute('height', '300'); // Image height
+            secondImage.setAttribute('id', 'seconds'); // Set ID for animation
+
+            // Append the image to the SVG
+            svg.appendChild(secondImage);
+        }
+
+        // Function to convert time to angle
+        function timeToAngle(time, period) {
+            let hour = time;
+
+            // Validate time input
+            if (isNaN(hour) || hour < 1 || hour > 12) {
+                hour = 12; // Default to 12 if invalid
+            }
+
+            if (period === 'PM') {
+                if (hour !== 12) {
+                    hour += 12; // Convert to 24-hour format
+                }
+            } else if (period === 'AM') {
+                if (hour === 12) {
+                    hour = 0; // 12 AM is 0
+                }
+            }
+
+            // Calculate angle
+            return (hour * 15 + 90) % 360;
+        }
+    </script>
+</body>
+</html>
